@@ -17,13 +17,20 @@ After installing the nano test network prereqs, the `fabric-samples/config/core.
       propagateEnvironment:
         - CORE_PEER_ID
         - KUBECONFIG_PATH
+        - FABRIC_K8S_BUILDER_DEV_MODE_TAG
 ```
 
 You can use [yq](https://mikefarah.gitbook.io/yq/) to update the `fabric-samples/config/core.yaml` files.
 Make sure you are in the `fabric-samples` directory before running the following commands.
 
 ```shell
-FABRIC_K8S_BUILDER_PATH=${HOME}/k8s_builder yq -i '.chaincode.externalBuilders += { "name": "k8s_builder", "path": "${FABRIC_K8S_BUILDER_PATH}" | envsubst(ne), "propagateEnvironment": [ "CORE_PEER_ID", "KUBECONFIG_PATH" ] }' config/core.yaml
+FABRIC_K8S_BUILDER_PATH=${HOME}/k8s_builder yq -i '.chaincode.externalBuilders += { "name": "k8s_builder", "path": "${FABRIC_K8S_BUILDER_PATH}" | envsubst(ne), "propagateEnvironment": [ "CORE_PEER_ID", "KUBECONFIG_PATH", "FABRIC_K8S_BUILDER_DEV_MODE_TAG" ] }' config/core.yaml
+```
+
+If you plan to use chaincode images which have not been pushed to a registry, set the `FABRIC_K8S_BUILDER_DEV_MODE_TAG` environment variable on every peer the builder is configured on.
+
+```shell
+export FABRIC_K8S_BUILDER_DEV_MODE_TAG=unstable
 ```
 
 ## Kubernetes configuration

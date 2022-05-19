@@ -33,12 +33,15 @@ func main() {
 		}
 	}
 
+	devModeTag := util.GetOptionalEnv(util.DevModeTag, "")
+
 	run := &builder.Run{
 		BuildOutputDirectory: os.Args[1],
 		RunMetadataDirectory: os.Args[2],
 		PeerID:               peerID,
 		KubeconfigPath:       kubeconfigPath,
 		KubeNamespace:        kubeNamespace,
+		DevModeTag:           devModeTag,
 	}
 
 	if err := run.Run(); err != nil {

@@ -2,6 +2,13 @@
 
 package util
 
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+)
+
 // ChaincodeJson represents the chaincode.json file that is supplied by Fabric in
 // the RUN_METADATA_DIR
 type ChaincodeJson struct {
@@ -17,4 +24,26 @@ type ChaincodeJson struct {
 type ImageJson struct {
 	Name   string `json:"name"`
 	Digest string `json:"digest"`
+}
+
+func ReadImageJson(imageJsonPath string) (*ImageJson, error) {
+	fmt.Println("Reading image.json...")
+	_, err := os.Stat(imageJsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to access image.json: %w", err)
+	}
+
+	imageJsonContents, err := ioutil.ReadFile(imageJsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read image.json: %w", err)
+	}
+
+	var imageData ImageJson
+	if err := json.Unmarshal(imageJsonContents, &imageData); err != nil {
+		return nil, fmt.Errorf("unable to process image.json: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "Image name: %s\nImage digest: %s\n", imageData.Name, imageData.Digest)
+
+	return &imageData, nil
 }

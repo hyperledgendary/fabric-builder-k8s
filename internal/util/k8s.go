@@ -63,8 +63,19 @@ func GetKubeNamespace() (string, error) {
 	return string(namespace), nil
 }
 
-func GetChaincodePodObject(imageData ImageJson, namespace, peerID string, chaincodeData ChaincodeJson) *apiv1.Pod {
-	chaincodeImage := imageData.Name + "@" + imageData.Digest
+func GetChaincodePodObject(devModeTag string, imageData ImageJson, namespace, peerID string, chaincodeData ChaincodeJson) *apiv1.Pod {
+	var chaincodeImage string
+	var imagePullPolicy apiv1.PullPolicy
+	if devModeTag != "" {
+		// Ignore the image digest in dev mode to allow chaincode which has not been pushed to
+		// a registry to start
+		// TODO log a suitable health warning!
+		chaincodeImage = imageData.Name + ":" + devModeTag
+		imagePullPolicy = apiv1.PullNever
+	} else {
+		chaincodeImage = imageData.Name + "@" + imageData.Digest
+		imagePullPolicy = apiv1.PullAlways
+	}
 
 	return &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -79,8 +90,9 @@ func GetChaincodePodObject(imageData ImageJson, namespace, peerID string, chainc
 		Spec: apiv1.PodSpec{
 			Containers: []apiv1.Container{
 				{
-					Name:  "main",
-					Image: chaincodeImage,
+					Name:            "main",
+					Image:           chaincodeImage,
+					ImagePullPolicy: imagePullPolicy,
 					VolumeMounts: []apiv1.VolumeMount{
 						{
 							Name:      "certs",

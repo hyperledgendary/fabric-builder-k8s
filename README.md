@@ -16,7 +16,12 @@ Status: it _should_ just about work now but there are a few issues to iron out (
 
 The k8s builder can be run in cluster using the `KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT` environment variables, or it can connect using a `KUBECONFIG_PATH` environment variable.
 
-An optional `FABRIC_CHAINCODE_NAMESPACE` can be used to specify the namespace to deploy chaincode to.
+An optional `FABRIC_K8S_BUILDER_NAMESPACE` can be used to specify the namespace to deploy chaincode to.
+
+If you are using the builder in a development environment and want to deploy chaincode images which have not been pushed to a registry, you will need to configure the builder to run in development mode.
+Set the `FABRIC_K8S_BUILDER_DEV_MODE_TAG` environment variable to an image tag which the builder will use instead of the `digest` value specified in chaincode packages.
+For example, use an `unstable` tag for local chaincode images.
+**Warning:** Use this option with care since it causes the k8s builder to ignore the `digest` value in all chaincode packages!
 
 A `CORE_PEER_ID` environment variable is also currently required.
 
@@ -28,9 +33,10 @@ External builders are configured in the `core.yaml` file, for example:
       path: /opt/hyperledger/k8s_builder
       propagateEnvironment:
         - CORE_PEER_ID
-        - FABRIC_CHAINCODE_NAMESPACE
         - KUBERNETES_SERVICE_HOST
         - KUBERNETES_SERVICE_PORT
+        - FABRIC_K8S_BUILDER_NAMESPACE
+        - FABRIC_K8S_BUILDER_DEV_MODE_TAG
 ```
 
 See [External Builders and Launchers](https://hyperledger-fabric.readthedocs.io/en/latest/cc_launcher.html) for details of Hyperledger Fabric builders.
@@ -80,14 +86,25 @@ cat << IMAGEJSON-EOF > image.json
 IMAGEJSON-EOF
 ```
 
-Note: the k8s chaincode package file uses digests because these are immutable, unlike tags.
+**Note:** the k8s chaincode package file uses digests because these are immutable, unlike tags.
 The docker inspect command can be used to find the digest if required.
 
 ```
 docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/hyperledgendary/conga-nft-contract:0bee560018ea932ec4c7ec252134e2506ec6e797 | cut -d'@' -f2
 ```
 
-Create a `code.tar.gz` archive containing the `image.json` file.
+If you are using the the k8s builder in a development environment by setting the `FABRIC_K8S_BUILDER_DEV_MODE_TAG` environment variable, you must set the `digest` to an empty string.
+
+```shell
+cat << IMAGEJSON-EOF > image.json
+{
+  "name": "conga-nft-contract",
+  "digest": ""
+}
+IMAGEJSON-EOF
+```
+
+Next, create a `code.tar.gz` archive containing the `image.json` file.
 
 ```shell
 tar -czf code.tar.gz image.json

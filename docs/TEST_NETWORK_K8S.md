@@ -21,14 +21,40 @@ The org1 and org2 `core.yaml` files also need to be updated with the k8s builder
         - CORE_PEER_ID
         - KUBERNETES_SERVICE_HOST
         - KUBERNETES_SERVICE_PORT
+        - FABRIC_K8S_BUILDER_DEV_MODE_TAG
 ```
 
 You can use [yq](https://mikefarah.gitbook.io/yq/) to update the `core.yaml` files.
 Make sure you are in the `fabric-samples/test-network-k8s` directory before running the following commands.
 
 ```shell
-yq -i '.chaincode.externalBuilders += { "name": "k8s_builder", "path": "/opt/hyperledger/k8s_builder", "propagateEnvironment": [ "CORE_PEER_ID", "KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT" ] }' config/org1/core.yaml
-yq -i '.chaincode.externalBuilders += { "name": "k8s_builder", "path": "/opt/hyperledger/k8s_builder", "propagateEnvironment": [ "CORE_PEER_ID", "KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT" ] }' config/org2/core.yaml
+yq -i '.chaincode.externalBuilders += { "name": "k8s_builder", "path": "/opt/hyperledger/k8s_builder", "propagateEnvironment": [ "CORE_PEER_ID", "KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT", "FABRIC_K8S_BUILDER_DEV_MODE_TAG" ] }' config/org1/core.yaml
+yq -i '.chaincode.externalBuilders += { "name": "k8s_builder", "path": "/opt/hyperledger/k8s_builder", "propagateEnvironment": [ "CORE_PEER_ID", "KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT", "FABRIC_K8S_BUILDER_DEV_MODE_TAG" ] }' config/org2/core.yaml
+```
+
+Use `kubectl` after running the `./network up` command.
+
+```shell
+kubectl patch configmap/org1-peer1-config \
+  configmap/org1-peer2-config \
+  configmap/org2-peer1-config \
+  configmap/org2-peer2-config \
+  --namespace=test-network \
+  --type merge \
+  -p '{"data":{"FABRIC_K8S_BUILDER_DEV_MODE_TAG":"unstable"}}'
+kubectl delete pods --namespace=test-network --all
+```
+
+_TODO: this should also work an restarts pods automatically but they take a while to come back up due to errors._
+
+```shell
+kubectl set env \
+  --namespace=test-network \
+  deployment/org1-peer1 \
+  deployment/org1-peer2 \
+  deployment/org2-peer1 \
+  deployment/org2-peer2 \
+  FABRIC_K8S_BUILDER_DEV_MODE_TAG=unstable
 ```
 
 ## Kubernetes permissions
@@ -38,7 +64,7 @@ After launching the k8s test network using the `./network up` command, you also 
 _TODO: Create a role (cut this down to what is actually required!)_
 
 ```shell
-cat <<EOF | kubectl apply -f -
+cat << ROLE-EOF | kubectl apply -f -
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -47,44 +73,27 @@ metadata:
   namespace: test-network
 rules:
   - apiGroups:
-        - ""
-        - apps
-        - autoscaling
-        - batch
-        - extensions
-        - policy
-        - rbac.authorization.k8s.io
+      - ""
+      - apps
     resources:
       - pods
-      - componentstatuses
       - configmaps
-      - daemonsets
-      - deployments
-      - events
-      - endpoints
-      - horizontalpodautoscalers
-      - ingress
-      - jobs
-      - limitranges
-      - namespaces
-      - nodes
-      - pods
-      - persistentvolumes
-      - persistentvolumeclaims
-      - resourcequotas
-      - replicasets
-      - replicationcontrollers
       - secrets
-      - serviceaccounts
-      - services
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-EOF
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+ROLE-EOF
 ```
 
 Create a role binding.
 
 ```shell
-cat <<EOF | kubectl apply -f -
+cat << ROLEBINDING-EOF | kubectl apply -f -
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -99,13 +108,13 @@ subjects:
 - namespace: test-network 
   kind: ServiceAccount
   name: default 
-EOF
+ROLEBINDING-EOF
 ```
 
 And finally, check it worked!
 
 ```shell
-kubectl auth can-i create deployments --namespace test-network --as system:serviceaccount:test-network:default
+kubectl auth can-i create pods --namespace test-network --as system:serviceaccount:test-network:default
 kubectl auth can-i create secrets --namespace test-network --as system:serviceaccount:test-network:default
 ```
 

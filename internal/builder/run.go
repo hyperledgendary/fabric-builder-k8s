@@ -20,6 +20,7 @@ type Run struct {
 	PeerID               string
 	KubeconfigPath       string
 	KubeNamespace        string
+	DevModeTag           string
 }
 
 const (
@@ -35,23 +36,10 @@ func (r *Run) Run() error {
 	imageJsonPath := filepath.Join(r.BuildOutputDirectory, "/image.json")
 	chaincodeJsonPath := filepath.Join(r.RunMetadataDirectory, "/chaincode.json")
 
-	fmt.Println("Reading image.json...")
-	_, err := os.Stat(imageJsonPath)
-	if err != nil {
-		return fmt.Errorf("unable to access image.json: %w", err)
-	}
-
-	imageJsonContents, err := ioutil.ReadFile(imageJsonPath)
+	imageData, err := util.ReadImageJson(imageJsonPath)
 	if err != nil {
 		return fmt.Errorf("unable to read image.json: %w", err)
 	}
-
-	var imageData util.ImageJson
-	if err := json.Unmarshal(imageJsonContents, &imageData); err != nil {
-		return fmt.Errorf("unable to process image.json: %w", err)
-	}
-
-	fmt.Fprintf(os.Stdout, "Image name: %s\nImage digest: %s\n", imageData.Name, imageData.Digest)
 
 	fmt.Println("Reading chaincode.json...")
 	_, err = os.Stat(chaincodeJsonPath)
@@ -89,7 +77,7 @@ func (r *Run) Run() error {
 
 	podsClient := clientset.CoreV1().Pods(r.KubeNamespace)
 
-	pod := util.GetChaincodePodObject(imageData, r.KubeNamespace, r.PeerID, chaincodeData)
+	pod := util.GetChaincodePodObject(r.DevModeTag, *imageData, r.KubeNamespace, r.PeerID, chaincodeData)
 
 	// TODO apply?
 	p, err := podsClient.Create(context.TODO(), pod, metav1.CreateOptions{})
